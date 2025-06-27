@@ -44,12 +44,8 @@ async function adminLogin(req, res) {
       { expiresIn: "2h" }
     );
 
-    console.log(token);
-
     // Step 5: Respond with token
-    return res
-      .status(200)
-      .json({ message: "Login successful", token: "hello" });
+    return res.status(200).json({ message: "success", token: token });
   } catch (error) {
     console.error("Admin login error:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -59,7 +55,6 @@ async function adminLogin(req, res) {
 async function adminRegister(req, res) {
   try {
     const { email, password } = req.body;
-    console.log(email, password);
 
     // Step 1: Validate input
     if (!email || !password) {
@@ -79,25 +74,53 @@ async function adminRegister(req, res) {
 
     // Step 3: Hash the password
     const hashedPassword = await bcrypt.hash(password, 10); // 10 salt rounds
-    console.log(hashedPassword);
+
     // Step 4: Store admin in Firestore
     const newAdmin = {
       email: email,
       password: hashedPassword,
       createdAt: new Date().toISOString(),
     };
-    console.log(newAdmin);
+
     const docRef = await db.collection("mmadmins").add(newAdmin);
 
     // Step 5: Respond
     res.status(201).json({
       message: "Admin registered successfully",
       adminId: docRef.id,
-      password: hashedPassword,
     });
   } catch (error) {
     console.error("Admin registration error:", error);
     res.status(500).json({ error: "Internal server error" });
+  }
+}
+
+async function verifyToken(req, res) {
+  try {
+    const authHeader = req.headers.authorization;
+    // console.log(authHeader)
+    console.log(authHeader)
+    // 1. Check if Authorization header is present
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res
+        .status(401)
+        .json({ error: "Authorization token missing or invalid format" });
+    }
+
+    // 2. Extract token from "Bearer <token>"
+    const token = authHeader.split(" ")[1];
+
+    // 3. Verify token using JWT_SECRET
+    const decoded = jwt.verify(token, JWT_SECRET);
+
+    // 4. If valid, send back the decoded info
+    return res.status(200).json({
+      message: "valid",
+      user: decoded, // Includes uid, email, role
+    });
+  } catch (error) {
+    console.error("Token verification failed:", error);
+    return res.status(401).json({ error: "Invalid or expired token" });
   }
 }
 
@@ -109,6 +132,7 @@ async function userRegister(req, res) {}
 module.exports = {
   adminLogin,
   adminRegister,
+  verifyToken,
   userLogin,
   userRegister,
 };
