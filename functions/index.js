@@ -7,12 +7,14 @@ const express = require("express");
 const cors = require("cors");
 const { db } = require("./firebaseAdmin");
 const routes = require("./Routes/authRoutes");
+const courseRoute = require("./Routes/course");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 app.use('/auth',routes)
+app.use('/courses',courseRoute)
 
 setGlobalOptions({ maxInstances: 10 });
 
