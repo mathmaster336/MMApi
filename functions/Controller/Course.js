@@ -16,6 +16,19 @@ async function getAllCoursesList(req, res) {
   }
 }
 
+async function getAllContentofCourse(req,res){
+  const id =req.parentID;
+  try{
+    
+
+  }catch(error){
+
+  }
+
+
+}
+
 module.exports = {
   getAllCoursesList,
+  getAllContentofCourse
 };
