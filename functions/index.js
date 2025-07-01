@@ -2,23 +2,38 @@ const { setGlobalOptions } = require("firebase-functions");
 const { onRequest } = require("firebase-functions/https");
 const logger = require("firebase-functions/logger");
 
-// express and Cors
+// Auth Api Functions 
 const express = require("express");
 const cors = require("cors");
 const { db } = require("./firebaseAdmin");
 const routes = require("./Routes/authRoutes");
 const courseRoute = require("./Routes/course");
 
-const app = express();
-app.use(cors());
-app.use(express.json());
+const authApi = express();
+authApi.use(cors());
+authApi.use(express.json());
 
-app.use('/auth',routes)
-app.use('/courses',courseRoute)
+authApi.use('/auth',routes)
 
 setGlobalOptions({ maxInstances: 10 });
 
-exports.addmessage = onRequest(
+exports.authApi = onRequest(
   { region: "asia-south2", maxInstances: 10 },
-  app
+  authApi
 );
+
+
+// Content Function Api 
+const contentApi =express();
+contentApi.use(cors());
+contentApi.use(express.json());
+
+contentApi.use('/courses',courseRoute)
+
+exports.contentApi = onRequest(
+  { region: "asia-south2", maxInstances: 10 },
+  contentApi
+);
+
+
+
