@@ -2,6 +2,7 @@ const { db } = require("../firebaseAdmin");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { JWT_SECRET } = require("../Services/AppConfig");
+const { sendOTPEmail } = require("../Activity/emailService");
 
 async function adminLogin(req, res) {
   try {
@@ -25,10 +26,10 @@ async function adminLogin(req, res) {
 
     const adminDoc = snapshot.docs[0];
     const adminData = adminDoc.data();
-  
+
     // Step 3: Compare password
     const isMatch = await bcrypt.compare(password, adminData.password);
-  
+
     if (!isMatch) {
       return res.status(200).json({ error: "Invalid email or password" });
     }
@@ -51,59 +52,6 @@ async function adminLogin(req, res) {
     return res.status(500).json({ error: "Internal server error" });
   }
 }
-
-// async function adminLogin(req, res) {
-//   debugger;
-//   try {
-//     const { email, password } = req.body;
-
-//     // Step 1: Validate input
-//     if (!email || !password) {
-//       return res.status(400).json({ error: "Email and password are required" });
-//     }
-
-//     // Step 2: Find admin by email
-//     const snapshot = await db
-//       .collection("mmadmins")
-//       .where("email", "==", email)
-//       .limit(1)
-//       .get();
-//     console.log(snapshot)
-//     if (snapshot.empty) {
-//       return res.status(401).json({ error: "Invalid email or password" });
-//     }
-
-//     console.log()
-
-//     const adminDoc = await snapshot.docs[0];
-//     console.log(adminDoc)
-//     const adminData = adminDoc.data();
-//     console.log( adminDoc +"And"+adminData )
-//     // Step 3: Compare password
-//     const isMatch = await bcrypt.compare(password, adminData.password);
-
-//     if (!isMatch) {
-//       return res.status(401).json({ error: "Invalid email or password" });
-//     }
-
-//     // Step 4: Create JWT token
-//     const token = jwt.sign(
-//       {
-//         uid: adminDoc.id,
-//         email: adminData.email,
-//         role: "admin",
-//       },
-//       JWT_SECRET,
-//       { expiresIn: "2h" }
-//     );
-
-//     // Step 5: Respond with token
-//     return res.status(200).json({ message: "success", token: token });
-//   } catch (error) {
-//     console.error("Admin login error:", error);
-//     res.status(500).json({ error: "Internal server error" });
-//   }
-// }
 
 async function adminRegister(req, res) {
   try {
@@ -152,7 +100,7 @@ async function verifyToken(req, res) {
   try {
     const authHeader = req.headers.authorization;
     // console.log(authHeader)
-   
+
     // 1. Check if Authorization header is present
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res
@@ -182,10 +130,39 @@ async function verifyToken(req, res) {
 async function userLogin(req, res) {}
 async function userRegister(req, res) {}
 
+// Forget Password
+async function forgetPassword(req, res) {
+  try {
+    const { adminEmail } = req.body; // Use body if you're sending via POST
+
+    if (!adminEmail) {
+      return res.status(400).send("Admin email is required");
+    }
+
+    const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Save OTP in Firestore
+    await db.collection("forgetOTP").add({
+      adminEmail: adminEmail,
+      adminOtp: generatedOtp,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // Send OTP via email
+    await sendOTPEmail(adminEmail, generatedOtp);
+
+    res.status(200).send("OTP sent to your email");
+  } catch (error) {
+    console.error("Error in forgetPassword:", error);
+    res.status(500).send("Internal Server Error");
+  }
+}
+
 module.exports = {
   adminLogin,
   adminRegister,
   verifyToken,
   userLogin,
   userRegister,
+  forgetPassword,
 };
