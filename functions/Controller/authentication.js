@@ -2,7 +2,15 @@ const { db } = require("../firebaseAdmin");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { JWT_SECRET } = require("../Services/AppConfig");
+// require("dotenv").config({ path: __dirname + "/../.env" });
+
 const { sendOTPEmail } = require("../Activity/emailService");
+const { ServiceEmaiLOTP } = require("../Services/EmailService");
+
+const { Timestamp } = require("firebase-admin/firestore");
+
+
+// const JWT_SECRET=process.env.JWT_SECRET
 
 async function adminLogin(req, res) {
   try {
@@ -99,7 +107,7 @@ async function adminRegister(req, res) {
 async function verifyToken(req, res) {
   try {
     const authHeader = req.headers.authorization;
-    // console.log(authHeader)
+    // 
 
     // 1. Check if Authorization header is present
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -127,34 +135,107 @@ async function verifyToken(req, res) {
 
 //users Authentications
 
-async function userLogin(req, res) {}
-async function userRegister(req, res) {}
-
-// Forget Password
+async function userLogin(req, res) { }
+async function userRegister(req, res) { }
+// FORGOT PASSWORD - Send OTP
 async function forgetPassword(req, res) {
   try {
-    const { adminEmail } = req.body; // Use body if you're sending via POST
+    const { adminEmail } = req.body;
 
     if (!adminEmail) {
-      return res.status(400).send("Admin email is required");
+      return res.status(400).json({ message: "Admin email is required" });
     }
 
     const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    const now = new Date();
+    console.log(generatedOtp)
 
-    // Save OTP in Firestore
     await db.collection("forgetOTP").add({
-      adminEmail: adminEmail,
+      adminEmail,
       adminOtp: generatedOtp,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: now,
     });
 
-    // Send OTP via email
-    await sendOTPEmail(adminEmail, generatedOtp);
+    const emailHassent = await sendOTPEmail(
+      adminEmail,
+      ServiceEmaiLOTP(generatedOtp)
+    );
 
-    res.status(200).send("OTP sent to your email");
+    if (emailHassent) {
+      return res.status(200).json({
+        message: "OTP sent to your email",
+        status: true,
+      });
+    } else {
+      return res.status(500).json({
+        message: "Failed to send OTP email",
+        status: false,
+      });
+    }
   } catch (error) {
     console.error("Error in forgetPassword:", error);
-    res.status(500).send("Internal Server Error");
+    return res.status(500).json({ message: "Internal server error" });
+  }
+}
+
+// VERIFY FORGOT OTP
+async function verifyForgetOtp(req, res) {
+  try {
+    const { forgetOtp, adminEmail } = req.body;
+
+    if (!forgetOtp || !adminEmail) {
+      return res.status(400).json({ message: "Email and OTP are required" });
+    }
+
+    const snapshot = await db
+      .collection("forgetOTP")
+      .where("adminEmail", "==", adminEmail.trim())
+      .get();
+
+    if (snapshot.empty) {
+      return res.status(404).json({ message: "OTP not found" });
+    }
+
+    // Sort manually by createdAt descending
+    const sortedDocs = snapshot.docs.sort((a, b) =>
+      b.data().createdAt.toDate() - a.data().createdAt.toDate()
+    );
+
+    const doc = sortedDocs[0];              // Get the latest OTP doc
+    const data = doc.data();                // OTP data
+    const docId = doc.id;                   // OTP Firestore document ID
+    const docRef = db.collection("forgetOTP").doc(docId); // Reference to delete later
+
+    const storedOtp = data.adminOtp;
+    const createdAt = data.createdAt.toDate();
+    const now = new Date();
+    const diffMinutes = (now - createdAt) / (1000 * 60);
+
+    console.log(`OTP age: ${diffMinutes} minutes`);
+
+    // OTP expired
+    if (diffMinutes > 5) {
+      await docRef.delete();  // Delete expired OTP
+      return res.status(200).json({ message: "OTP expired", status: false });
+    }
+
+    // OTP does not match
+    if (forgetOtp !== storedOtp) {
+      // Delete used (wrong) OTP
+      return res.status(200).json({ message: "Invalid OTP", status: false });
+    }
+
+    // ✅ OTP is valid
+    await docRef.delete();  // Delete after successful verification
+
+    return res.status(200).json({
+      message: "OTP verified successfully",
+      status: true,
+    });
+
+  } catch (error) {
+    console.error("Error verifying OTP:", error);
+    return res.status(500).json({ message: "Internal server error" });
   }
 }
 
@@ -165,4 +246,5 @@ module.exports = {
   userLogin,
   userRegister,
   forgetPassword,
+  verifyForgetOtp
 };
