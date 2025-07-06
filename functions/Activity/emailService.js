@@ -1,6 +1,5 @@
 // ✅ If using Firebase CLI env loading (.env.mathmaster-cbffc), do NOT use dotenv
 // ❌ Do NOT add this if using Firebase native env
-require("dotenv").config({ path: __dirname + "/../.env.local" });
 
 const {EMAIL_USER} = require("../Services/AppConfig");
 const {EMAIL_PASS} = require("../Services/AppConfig");

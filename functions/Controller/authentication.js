@@ -239,6 +239,47 @@ async function verifyForgetOtp(req, res) {
   }
 }
 
+
+async function adminResetPassword(req, res) {
+  const { email, newPassword } = req.body;
+
+  try {
+    // 1. 🔒 Hash the new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // 2. 🔍 Query the admin by email
+    const snapshot = await db
+      .collection("mmadmins")
+      .where("email", "==", email)
+      .limit(1)
+      .get();
+
+    if (snapshot.empty) {
+      return res.status(404).json({ status: false, message: "Admin not found." });
+    }
+
+    const doc = snapshot.docs[0];
+
+    // 3. ✏️ Update the document with new hashed password
+    await db.collection("mmadmins").doc(doc.id).update({
+      password: hashedPassword,
+      updatedAt: new Date().toISOString(),
+    });
+
+    return res.status(200).json({
+      status: true,
+      message: "Password reset successfully.",
+    });
+  } catch (error) {
+    console.error("Password reset error:", error);
+    return res.status(500).json({
+      status: false,
+      message: "Failed to reset password.",
+    });
+  }
+}
+
+
 module.exports = {
   adminLogin,
   adminRegister,
@@ -246,5 +287,6 @@ module.exports = {
   userLogin,
   userRegister,
   forgetPassword,
-  verifyForgetOtp
+  verifyForgetOtp,
+  adminResetPassword
 };

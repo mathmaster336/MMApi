@@ -7,6 +7,7 @@ const {
   verifyToken,
   forgetPassword,
   verifyForgetOtp,
+  adminResetPassword,
 } = require("../Controller/authentication");
 const routes = express.Router();
 
@@ -17,6 +18,7 @@ routes.post("/userlogin", userLogin);
 routes.post("/userregister", userRegister);
 routes.post("/foregetpassword",forgetPassword)
 routes.post("/VerifyForgetOtp",verifyForgetOtp)
+routes.post("/adminResetpassword",adminResetPassword)
 
 
 module.exports = routes;
